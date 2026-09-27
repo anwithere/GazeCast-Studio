@@ -28,6 +28,14 @@ export class CompositeRecorderService {
   readonly recordedDurationMs = signal<number>(0);
   readonly recordingTimeSeconds = signal<number>(0);
   readonly heatmapImageUrl = signal<string | null>(null);
+  readonly aiInsights = signal<{
+    verdictTitle: string;
+    focusScore: number;
+    reactionSpeedMs: number;
+    distractionResistance: string;
+    highlights: string[];
+    viralRoastOrPraise: string;
+  } | null>(null);
 
   // Customization options
   readonly pipPosition = signal<PipPosition>('top-right');
@@ -554,5 +562,43 @@ export class CompositeRecorderService {
     a.download = `gazecast_data_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async analyzeGazeWithAi(): Promise<void> {
+    if (this.telemetryLog.length === 0) return;
+
+    try {
+      const summary = {
+        totalSamples: this.telemetryLog.length,
+        durationSeconds: Math.round(this.recordedDurationMs() / 1000),
+        avgFixationDuration: Math.round(
+          this.telemetryLog.reduce((acc, p) => acc + p.fixationDurationMs, 0) / this.telemetryLog.length
+        ),
+        gazePositionsSample: this.telemetryLog.filter((_, i) => i % 15 === 0).map(p => ({
+          t: p.timeMs,
+          x: p.normX,
+          y: p.normY
+        }))
+      };
+
+      const res = await fetch('/api/ai-analyze-gaze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeName: this.challengeVideos.activePreset().title,
+          durationSeconds: summary.durationSeconds,
+          telemetrySummary: summary
+        })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          this.aiInsights.set(json.data);
+        }
+      }
+    } catch (err) {
+      console.warn('AI gaze analysis request note:', err);
+    }
   }
 }

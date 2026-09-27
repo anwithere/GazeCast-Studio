@@ -8,7 +8,7 @@
       </div>
       <div class="flex items-center gap-2">
         <span class="text-base font-bold tracking-tight text-white">GazeCast Studio</span>
-        <span class="text-xs text-rose-400 font-mono hidden sm:inline-block">· Voice-Calibrated AI Eye Tracker</span>
+        <span class="text-xs text-rose-400 font-mono hidden sm:inline-block">· Dual Neural + CV Eye Tracker</span>
       </div>
     </div>
 
@@ -105,7 +105,7 @@
   <!-- MAIN TAB 1: STUDIO STAGE -->
   @if (activeTab() === 'studio') {
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
-      <!-- Status & Calibration Banner -->
+      <!-- Status & Quick Controls Banner -->
       <div class="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-900/70 p-3 rounded-xl border border-slate-800">
         <div class="flex flex-wrap items-center gap-3 text-slate-300">
           <!-- Calibration Status Badge -->
@@ -120,51 +120,87 @@
             [class.border-amber-500/50]="!isCalibrated()"
             [class.text-amber-300]="!isCalibrated()">
             <mat-icon class="text-sm leading-none">{{ isCalibrated() ? 'verified' : 'priority_high' }}</mat-icon>
-            <span>{{ isCalibrated() ? 'Voice Calibrated (' + calibrationAccuracy() + '% Accuracy)' : 'Uncalibrated - Start Voice Calibration' }}</span>
+            <span>{{ isCalibrated() ? 'Calibrated (Thin-Plate Spline ' + calibrationAccuracy() + '%)' : 'Uncalibrated - Start Voice Calibration' }}</span>
           </button>
 
           <span aria-hidden="true" class="text-slate-600 hidden sm:inline">·</span>
 
-          <span class="flex items-center gap-1.5 text-slate-400">
-            <span>Video: <strong class="text-slate-200">{{ activePreset().title }}</strong></span>
-          </span>
+          <!-- Spectacles Toggle -->
+          <button
+            (click)="toggleSpectaclesMode()"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium cursor-pointer transition-colors"
+            [class.bg-rose-950/40]="spectaclesMode()"
+            [class.border-rose-500/50]="spectaclesMode()"
+            [class.text-rose-300]="spectaclesMode()"
+            [class.bg-slate-800]="!spectaclesMode()"
+            [class.border-slate-700]="!spectaclesMode()"
+            [class.text-slate-400]="!spectaclesMode()">
+            <mat-icon class="text-sm leading-none">filter_frames</mat-icon>
+            <span>Glasses Mode: {{ spectaclesMode() ? 'ON' : 'OFF' }}</span>
+          </button>
 
           <span aria-hidden="true" class="text-slate-600 hidden sm:inline">·</span>
 
-          <span class="font-mono text-slate-400 tabular-nums">
-            Gaze: <strong class="text-rose-400">[{{ currentGaze().screenX }}px, {{ currentGaze().screenY }}px]</strong>
+          <!-- Quick Recenter Button -->
+          <button
+            (click)="recenterGaze()"
+            class="flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-700 hover:border-slate-600 bg-slate-800 text-slate-300 hover:text-white cursor-pointer transition-colors"
+            title="Recenter Gaze Pointer to Screen Center">
+            <mat-icon class="text-sm leading-none">center_focus_strong</mat-icon>
+            <span>Recenter Gaze</span>
+          </button>
+
+          <span aria-hidden="true" class="text-slate-600 hidden lg:inline">·</span>
+
+          <!-- Eye Velocity HUD -->
+          <span class="font-mono text-slate-400 tabular-nums hidden sm:inline-flex items-center gap-1">
+            <span>Speed:</span>
+            <strong class="text-emerald-400">{{ eyeVelocity() }} px/s</strong>
           </span>
 
           <span aria-hidden="true" class="text-slate-600 hidden lg:inline">·</span>
 
-          <!-- Neural Face & Iris Model Badge -->
-          <span class="px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1.5 border"
-            [class.bg-emerald-950/40]="isNeuralModelLoaded()"
-            [class.border-emerald-500/40]="isNeuralModelLoaded()"
-            [class.text-emerald-300]="isNeuralModelLoaded()"
-            [class.bg-slate-800]="!isNeuralModelLoaded()"
-            [class.border-slate-700]="!isNeuralModelLoaded()"
-            [class.text-slate-400]="!isNeuralModelLoaded()">
-            <mat-icon class="text-xs leading-none">{{ isNeuralModelLoaded() ? 'auto_awesome' : 'hourglass_empty' }}</mat-icon>
-            <span>{{ isNeuralModelLoaded() ? 'MediaPipe Neural Iris 478 Mesh (Glasses Supported)' : 'Loading MediaPipe FaceMesh...' }}</span>
+          <span class="font-mono text-slate-400 tabular-nums hidden md:inline">
+            Gaze: <strong class="text-rose-400">[{{ currentGaze().screenX }}px, {{ currentGaze().screenY }}px]</strong>
           </span>
         </div>
 
+        <!-- Responsiveness Speed Profile Selector -->
         <div class="flex items-center gap-2">
-          <!-- Mode Indicator -->
+          <span class="text-slate-400 font-mono text-[11px] hidden sm:inline">Tracking Speed:</span>
+          <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <button
+              (click)="setResponsiveness('instant')"
+              class="px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer"
+              [class.bg-rose-600]="responsivenessMode() === 'instant'"
+              [class.text-white]="responsivenessMode() === 'instant'"
+              [class.text-slate-400]="responsivenessMode() !== 'instant'">
+              Ultra-Fast (Twitch)
+            </button>
+            <button
+              (click)="setResponsiveness('balanced')"
+              class="px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer"
+              [class.bg-rose-600]="responsivenessMode() === 'balanced'"
+              [class.text-white]="responsivenessMode() === 'balanced'"
+              [class.text-slate-400]="responsivenessMode() !== 'balanced'">
+              Balanced
+            </button>
+            <button
+              (click)="setResponsiveness('cinema')"
+              class="px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer"
+              [class.bg-rose-600]="responsivenessMode() === 'cinema'"
+              [class.text-white]="responsivenessMode() === 'cinema'"
+              [class.text-slate-400]="responsivenessMode() !== 'cinema'">
+              Cinema
+            </button>
+          </div>
+
+          <!-- Mouse / Cam Toggle -->
           <button
             (click)="toggleSimulatedGaze()"
-            class="px-2.5 py-1 rounded text-xs border border-slate-700 hover:border-slate-600 transition-colors flex items-center gap-1 text-slate-300 cursor-pointer">
+            class="px-2 py-1 rounded text-xs border border-slate-700 hover:border-slate-600 transition-colors flex items-center gap-1 text-slate-300 cursor-pointer"
+            title="Toggle between Camera Iris Tracking and Mouse Cursor Simulation">
             <mat-icon class="text-sm leading-none">{{ isSimulatedGaze() ? 'mouse' : 'photo_camera' }}</mat-icon>
-            <span>{{ isSimulatedGaze() ? 'Mouse Gaze Active' : 'Camera Iris Active' }}</span>
-          </button>
-
-          <!-- Voice Calibrate Button -->
-          <button
-            (click)="setTab('calibration')"
-            class="px-3 py-1 rounded text-xs bg-rose-600 hover:bg-rose-500 text-white font-medium transition-colors flex items-center gap-1 shadow-sm cursor-pointer">
-            <mat-icon class="text-sm leading-none">record_voice_over</mat-icon>
-            <span>Recalibrate (Voice)</span>
           </button>
         </div>
       </div>
@@ -208,11 +244,11 @@
         @if (!isCalibrated() && !isRecording() && isCameraReady()) {
           <div class="absolute top-4 right-4 bg-amber-950/90 border border-amber-500/60 backdrop-blur-md px-3 py-2 rounded-xl text-xs flex items-center gap-2 text-amber-200 z-10">
             <mat-icon class="text-amber-400 text-base">record_voice_over</mat-icon>
-            <span>For 99% accuracy:</span>
+            <span>Calibrate gaze:</span>
             <button
               (click)="setTab('calibration')"
               class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2 py-0.5 rounded text-[11px] cursor-pointer">
-              Run Voice Calibration
+              Start Voice Calibration
             </button>
           </div>
         }
@@ -260,87 +296,42 @@
         </div>
       </div>
 
-      <!-- Live Iris Diagnostics & Tracking Parameters -->
+      <!-- Challenge Selector & Visual Overlay Deck -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Column 1: Live Iris Tracking Preview -->
-        <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-              <mat-icon class="text-emerald-400 text-base leading-none">center_focus_strong</mat-icon>
-              <span>Pupil & Iris Lock</span>
-            </h3>
-            <span class="text-xs font-mono text-emerald-400 font-semibold">{{ (pupilConfidence() * 100).toFixed(0) }}% Lock</span>
-          </div>
+        <!-- Panel 1: Viral Challenge Selector -->
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl flex flex-col gap-3">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+            <mat-icon class="text-rose-400 text-base">video_library</mat-icon>
+            <span>Viral YouTube Challenges</span>
+          </h3>
 
-          <!-- Real-Time Eye Crop Feeds -->
-          <div class="grid grid-cols-2 gap-2">
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800 flex flex-col items-center gap-1">
-              <span class="text-[10px] font-mono text-slate-400">Left Iris</span>
-              <div class="w-full aspect-[3/2] bg-slate-900 rounded overflow-hidden flex items-center justify-center">
-                @if (eyeTracker.leftEyeCrop()) {
-                  <img [src]="eyeTracker.leftEyeCrop()" alt="Left eye tracking" class="w-full h-full object-cover" />
-                } @else {
-                  <mat-icon class="text-slate-600 text-2xl">remove_red_eye</mat-icon>
-                }
-              </div>
-            </div>
-
-            <div class="bg-slate-950 p-2 rounded-lg border border-slate-800 flex flex-col items-center gap-1">
-              <span class="text-[10px] font-mono text-slate-400">Right Iris</span>
-              <div class="w-full aspect-[3/2] bg-slate-900 rounded overflow-hidden flex items-center justify-center">
-                @if (eyeTracker.rightEyeCrop()) {
-                  <img [src]="eyeTracker.rightEyeCrop()" alt="Right eye tracking" class="w-full h-full object-cover" />
-                } @else {
-                  <mat-icon class="text-slate-600 text-2xl">remove_red_eye</mat-icon>
-                }
-              </div>
-            </div>
-          </div>
-
-          <div class="text-[11px] text-slate-400 flex items-center gap-1.5 bg-slate-950/60 p-2 rounded border border-slate-800/80">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>Green ring: detected iris boundary · Red: pupil centroid</span>
-          </div>
-        </div>
-
-        <!-- Column 2: Challenge Presets -->
-        <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-              <mat-icon class="text-rose-400 text-base leading-none">ondemand_video</mat-icon>
-              <span>Stimulus Challenges</span>
-            </h3>
-            <span class="text-xs text-slate-500 font-mono">3 Presets</span>
-          </div>
-
-          <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
             @for (preset of presets(); track preset.id) {
               <button
                 (click)="selectPreset(preset)"
-                class="p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 cursor-pointer"
-                [class.border-rose-500/60]="activePreset().id === preset.id && !challengeVideos.isCustomVideo()"
-                [class.bg-rose-950/20]="activePreset().id === preset.id && !challengeVideos.isCustomVideo()"
-                [class.border-slate-800]="activePreset().id !== preset.id || challengeVideos.isCustomVideo()"
-                [class.bg-slate-950/50]="activePreset().id !== preset.id || challengeVideos.isCustomVideo()">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-semibold text-white">{{ preset.title }}</span>
-                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded text-slate-400 bg-slate-900">{{ preset.difficulty }}</span>
+                class="p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between"
+                [class.border-rose-500]="activePreset().id === preset.id"
+                [class.bg-rose-950/30]="activePreset().id === preset.id"
+                [class.border-slate-800]="activePreset().id !== preset.id"
+                [class.hover:border-slate-700]="activePreset().id !== preset.id">
+                <div>
+                  <div class="text-xs font-semibold text-white">{{ preset.title }}</div>
+                  <div class="text-[11px] text-slate-400">{{ preset.description }}</div>
                 </div>
-                <p class="text-[11px] text-slate-400 line-clamp-1">{{ preset.description }}</p>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                  {{ preset.durationSec }}s
+                </span>
               </button>
             }
           </div>
         </div>
 
-        <!-- Column 3: Reticle Overlay & PiP Position -->
-        <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-              <mat-icon class="text-rose-400 text-base leading-none">filter_center_focus</mat-icon>
-              <span>Reticle & PiP Layout</span>
-            </h3>
-            <span class="text-xs text-slate-500 font-mono">{{ recorder.reticleStyle() }}</span>
-          </div>
+        <!-- Panel 2: Reticle & HUD Customization -->
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl flex flex-col gap-3">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+            <mat-icon class="text-rose-400 text-base">tune</mat-icon>
+            <span>Gaze Reticle Style</span>
+          </h3>
 
           <div class="grid grid-cols-2 gap-2 text-xs">
             <button
@@ -362,30 +353,75 @@
               <div class="font-semibold text-white">Laser Dot</div>
               <div class="text-[10px] text-slate-400">High Visibility</div>
             </button>
+
+            <button
+              (click)="setReticleStyle('heat-focus')"
+              class="p-2 rounded-lg border text-left transition-colors cursor-pointer"
+              [class.border-rose-500]="recorder.reticleStyle() === 'heat-focus'"
+              [class.bg-rose-950/30]="recorder.reticleStyle() === 'heat-focus'"
+              [class.border-slate-800]="recorder.reticleStyle() !== 'heat-focus'">
+              <div class="font-semibold text-white">Heat Glow</div>
+              <div class="text-[10px] text-slate-400">Soft Focus Blob</div>
+            </button>
+
+            <button
+              (click)="setReticleStyle('bullseye')"
+              class="p-2 rounded-lg border text-left transition-colors cursor-pointer"
+              [class.border-rose-500]="recorder.reticleStyle() === 'bullseye'"
+              [class.bg-rose-950/30]="recorder.reticleStyle() === 'bullseye'"
+              [class.border-slate-800]="recorder.reticleStyle() !== 'bullseye'">
+              <div class="font-semibold text-white">Bullseye</div>
+              <div class="text-[10px] text-slate-400">Crosshair Metric</div>
+            </button>
           </div>
 
-          <!-- Smoothing sensitivity slider -->
-          <div class="pt-2 border-t border-slate-800 flex flex-col gap-1 text-xs">
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-800">
+            <span>Gaze Trail:</span>
+            <button
+              (click)="toggleGazeTrail()"
+              class="px-2.5 py-1 rounded text-xs border cursor-pointer"
+              [class.bg-emerald-950/40]="recorder.showGazeTrail()"
+              [class.border-emerald-500/50]="recorder.showGazeTrail()"
+              [class.text-emerald-300]="recorder.showGazeTrail()"
+              [class.border-slate-700]="!recorder.showGazeTrail()">
+              {{ recorder.showGazeTrail() ? 'Enabled' : 'Disabled' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 3: Gaze Sensitivity & Webcam Position -->
+        <div class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl flex flex-col gap-3">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+            <mat-icon class="text-rose-400 text-base">speed</mat-icon>
+            <span>Eye Movement Sensitivity</span>
+          </h3>
+
+          <div class="flex flex-col gap-1 text-xs">
             <div class="flex items-center justify-between text-slate-300">
-              <span>Gaze Smoothing</span>
-              <span class="font-mono text-slate-400">Adaptive</span>
+              <span>Gaze Range Multiplier</span>
+              <span class="font-mono text-rose-400 font-bold">{{ gazeSensitivity().toFixed(2) }}x</span>
             </div>
             <input
               type="range"
-              min="0.06"
-              max="0.45"
-              step="0.02"
-              value="0.16"
-              (input)="setSmoothing($event)"
-              class="accent-rose-500 w-full" />
+              min="0.8"
+              max="2.8"
+              step="0.05"
+              [value]="gazeSensitivity()"
+              (input)="setSensitivity($event)"
+              class="accent-rose-500 w-full cursor-pointer" />
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.8x (Subtle)</span>
+              <span>1.5x (Standard)</span>
+              <span>2.8x (Full Reach)</span>
+            </div>
           </div>
 
-          <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
-            <span>Webcam PiP:</span>
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-800">
+            <span>Webcam PiP Position:</span>
             <div class="flex gap-1">
               <button
                 (click)="setPipPosition('top-right')"
-                class="px-2 py-0.5 rounded text-[11px] border"
+                class="px-2 py-0.5 rounded text-[11px] border cursor-pointer"
                 [class.bg-rose-950]="recorder.pipPosition() === 'top-right'"
                 [class.border-rose-500]="recorder.pipPosition() === 'top-right'"
                 [class.border-slate-700]="recorder.pipPosition() !== 'top-right'">
@@ -393,7 +429,7 @@
               </button>
               <button
                 (click)="setPipPosition('top-left')"
-                class="px-2 py-0.5 rounded text-[11px] border"
+                class="px-2 py-0.5 rounded text-[11px] border cursor-pointer"
                 [class.bg-rose-950]="recorder.pipPosition() === 'top-left'"
                 [class.border-rose-500]="recorder.pipPosition() === 'top-left'"
                 [class.border-slate-700]="recorder.pipPosition() !== 'top-left'">
@@ -428,6 +464,11 @@
                 <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800/60">
                   Target {{ currentVoiceTargetIndex() + 1 }} / 9
                 </span>
+                @if (spectaclesMode()) {
+                  <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-800/60">
+                    Spectacles Mode
+                  </span>
+                }
               </div>
               <p class="text-xs text-rose-300 font-medium mt-1 flex items-center gap-1.5">
                 <mat-icon class="text-sm">mic</mat-icon>
@@ -441,8 +482,8 @@
             <button
               (click)="confirmCurrentCalibrationTarget()"
               class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-rose-950/50 cursor-pointer transition-all">
-              <mat-icon class="text-base leading-none">mic</mat-icon>
-              <span>Say "I have looked" (or Click/Space)</span>
+              <mat-icon class="text-base leading-none">gps_fixed</mat-icon>
+              <span>Lock Point (Spacebar / Click)</span>
             </button>
 
             <button
@@ -458,32 +499,32 @@
           <!-- Mic Volume Visualizer -->
           <div class="flex items-center gap-2.5">
             <mat-icon class="text-slate-400 text-sm leading-none">graphic_eq</mat-icon>
-            <span class="text-slate-400 font-mono text-[11px]">Mic Input:</span>
-            <div class="w-24 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <span class="text-slate-400 font-mono text-[11px]">Mic Level:</span>
+            <div class="w-24 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800 relative">
               <div
                 class="bg-emerald-400 h-full transition-all duration-75"
                 [style.width.%]="micVolume()">
               </div>
             </div>
-            <span class="font-mono text-[11px] text-slate-500">{{ micVolume() }}%</span>
+            <span class="font-mono text-[11px] text-slate-400">{{ micVolume() }}%</span>
           </div>
 
           <!-- Heard Phrase Display -->
           <div class="flex items-center gap-2">
-            <span class="text-slate-400 font-mono text-[11px]">Heard:</span>
+            <span class="text-slate-400 font-mono text-[11px]">Voice Detector:</span>
             @if (lastHeardPhrase()) {
               <span class="font-mono font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">
                 "{{ lastHeardPhrase() }}"
               </span>
             } @else {
-              <span class="font-mono text-slate-500 italic">Listening for: "I have looked"...</span>
+              <span class="font-mono text-slate-400 italic">Listening for: "I am looking", "looked", "done"...</span>
             }
           </div>
 
           <!-- Key Shortcut Indicator -->
-          <div class="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
-            <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 text-[10px]">SPACE</kbd>
-            <span>also confirms</span>
+          <div class="text-[11px] text-slate-400 flex items-center gap-1.5 font-mono">
+            <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 text-[10px]">SPACEBAR</kbd>
+            <span>or 1.8s steady gaze auto-locks</span>
           </div>
         </div>
 
@@ -514,14 +555,32 @@
                 <div class="absolute -inset-8 rounded-full bg-rose-500/20 animate-ping pointer-events-none"></div>
                 <div class="absolute -inset-5 rounded-full bg-rose-500/30 animate-pulse pointer-events-none"></div>
 
-                <!-- Dwell Progress Ring (Auto-capture after 3.2s) -->
-                <div
-                  class="absolute -inset-2 rounded-full border-3 border-emerald-400 transition-all pointer-events-none"
-                  [style.opacity]="dwellProgress() > 5 ? 1 : 0.4"
-                  [style.transform]="'scale(' + (1 + (dwellProgress() / 300)) + ')'">
-                </div>
+                <!-- Dwell Progress SVG Ring -->
+                <svg class="absolute -inset-4 w-24 h-24 transform -rotate-90 pointer-events-none" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke="#047857"
+                    stroke-width="6"
+                    opacity="0.3"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke="#10b981"
+                    stroke-width="6"
+                    stroke-linecap="round"
+                    [attr.stroke-dasharray]="276.46"
+                    [attr.stroke-dashoffset]="276.46 * (1 - dwellProgress() / 100)"
+                    class="transition-all duration-100"
+                  />
+                </svg>
 
-                <!-- Glaze Rotating Reticle Rings -->
+                <!-- Center Active Pinpoint Reticle -->
                 <div class="relative w-16 h-16 rounded-full border-2 border-dashed border-rose-400 animate-spin flex items-center justify-center"></div>
 
                 <div class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-rose-600 shadow-xl shadow-rose-500/60 flex items-center justify-center text-white">
@@ -532,10 +591,10 @@
                 <div class="absolute top-18 left-1/2 -translate-x-1/2 bg-slate-950/95 border border-rose-500/80 text-rose-200 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap shadow-2xl flex flex-col items-center gap-0.5">
                   <span class="flex items-center gap-1.5">
                     <mat-icon class="text-xs text-rose-400">mic</mat-icon>
-                    <span>SAY "I HAVE LOOKED" · OR PRESS SPACE / TAP</span>
+                    <span>LOOK HERE & SAY "I AM LOOKING" OR PRESS SPACE</span>
                   </span>
                   <span class="text-[10px] text-emerald-400 font-normal">
-                    Fixating: {{ dwellProgress() }}% (Auto-captures in {{ ((3200 - (dwellProgress() * 32)) / 1000).toFixed(1) }}s)
+                    Fixating: {{ dwellProgress() }}% (Auto-locks in {{ ((1800 - (dwellProgress() * 18)) / 1000).toFixed(1) }}s)
                   </span>
                 </div>
               } @else if (target.completed) {
@@ -560,7 +619,6 @@
 
           <!-- Live Eye Tracking Feedback Box -->
           <div class="absolute bottom-4 right-4 bg-slate-900/90 border border-slate-700/80 p-3 rounded-xl flex items-center gap-4 text-xs z-20">
-            <!-- Left Eye Crop -->
             @if (eyeTracker.leftEyeCrop()) {
               <div class="w-16 h-11 bg-slate-950 rounded border border-slate-800 overflow-hidden">
                 <img [src]="eyeTracker.leftEyeCrop()" alt="Tracking eye" class="w-full h-full object-cover" />
@@ -576,12 +634,35 @@
           </div>
         </div>
 
+        <!-- AI Diagnostic Report if available -->
+        @if (aiReport()) {
+          <div class="bg-slate-950/90 border border-emerald-500/40 p-4 rounded-xl flex flex-col gap-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-emerald-400 font-bold flex items-center gap-1.5">
+                <mat-icon class="text-sm">auto_awesome</mat-icon>
+                <span>Gemini AI Calibration Diagnosis</span>
+              </span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                Quality: {{ aiReport()?.accuracyScore }}%
+              </span>
+            </div>
+            <p class="text-slate-300 leading-relaxed">{{ aiReport()?.diagnosisMessage }}</p>
+            @if (aiReport()?.calibrationTips && (aiReport()?.calibrationTips)!.length > 0) {
+              <div class="text-[11px] text-slate-400 flex flex-wrap gap-2 pt-1 border-t border-slate-800">
+                @for (tip of aiReport()?.calibrationTips; track tip) {
+                  <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">💡 {{ tip }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <!-- Assistant Instructions Footer -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-slate-400 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
           <div class="flex items-center gap-2">
             <mat-icon class="text-rose-400 text-base">info</mat-icon>
             <span>
-              <strong>Voice Calibration Process:</strong> The AI speaks each target ("Look at top left"). Look directly at the glazed point and say <em>"I have looked"</em> or press Spacebar. The mathematical model computes your exact pupil projection.
+              <strong>Voice Calibration Process:</strong> AI speaks each target. Look directly at the glazed point and say <em>"I am looking"</em> or press Spacebar. The Thin-Plate Spline engine locks your exact screen gaze.
             </span>
           </div>
 
@@ -713,6 +794,60 @@
         </div>
       </div>
 
+      <!-- AI Gaze Analysis Section -->
+      @if (recordedVideoUrl()) {
+        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <mat-icon class="text-rose-400 text-base">auto_awesome</mat-icon>
+                <span>Gemini AI Viral Reaction Analysis</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                AI analyzes your gaze saccades, reaction latency, and distraction resistance during the challenge.
+              </p>
+            </div>
+
+            <button
+              (click)="analyzeRecordedGazeWithAi()"
+              class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer">
+              <mat-icon class="text-sm">psychology</mat-icon>
+              <span>Generate AI Roast & Verdict</span>
+            </button>
+          </div>
+
+          @if (aiInsights()) {
+            <div class="bg-slate-950/90 border border-rose-500/40 p-4 rounded-xl flex flex-col gap-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                <span class="text-base font-black text-rose-400 tracking-wide">
+                  🏆 {{ aiInsights()?.verdictTitle }}
+                </span>
+                <div class="flex items-center gap-2 text-xs font-mono">
+                  <span class="bg-slate-900 px-2.5 py-0.5 rounded text-emerald-400 border border-slate-800">
+                    Focus Score: {{ aiInsights()?.focusScore }}%
+                  </span>
+                  <span class="bg-slate-900 px-2.5 py-0.5 rounded text-cyan-400 border border-slate-800">
+                    Speed: {{ aiInsights()?.reactionSpeedMs }}ms
+                  </span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-200 leading-relaxed italic">
+                "{{ aiInsights()?.viralRoastOrPraise }}"
+              </p>
+              @if (aiInsights()?.highlights) {
+                <div class="flex flex-wrap gap-2 pt-1 text-[11px]">
+                  @for (hl of aiInsights()?.highlights; track hl) {
+                    <span class="bg-slate-900/80 px-2.5 py-1 rounded-md border border-slate-800 text-slate-300">
+                      🎯 {{ hl }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
       <!-- Telemetry Data & Export Row -->
       <div class="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-6">
         <div class="flex items-center gap-4">
@@ -756,14 +891,14 @@
           <div class="flex items-center justify-between">
             <h2 class="text-xl font-bold text-white flex items-center gap-2">
               <mat-icon class="text-rose-400">troubleshoot</mat-icon>
-              <span>MediaPipe Neural Mesh & Spectacles Calibration</span>
+              <span>Dual-Engine Neural Mesh & Spectacles Diagnostics</span>
             </h2>
             <span class="text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-600/50">
               478 Neural Landmarks
             </span>
           </div>
           <p class="text-xs text-slate-400 mt-1">
-            Real-time 3D facial topology and neural iris centroid extraction. Specifically calibrated to track through spectacle lenses, thick glass frames, and surface glare.
+            Real-time 3D facial topology, Thin-Plate Spline spatial mapping, and 1 Euro velocity-adaptive filtering.
           </p>
         </div>
 
@@ -806,12 +941,13 @@
         <div class="bg-slate-950/60 border border-slate-800 p-5 rounded-xl flex flex-col gap-3 text-xs">
           <h4 class="font-semibold text-white flex items-center gap-1.5">
             <mat-icon class="text-rose-400 text-sm">filter_frames</mat-icon>
-            <span>Wearing Spectacles or Glasses? Quick Tips:</span>
+            <span>Wearing Spectacles or Glasses? Best Practice Tips:</span>
           </h4>
           <ul class="list-disc list-inside text-slate-300 space-y-1.5 leading-relaxed">
-            <li><strong>Spectacle Glare:</strong> If your monitor or room light causes intense white reflection on your lenses, slightly angle your monitor back 5° or tilt your glasses slightly down on your nose bridge.</li>
-            <li><strong>Full Head Stability:</strong> During the 9-point voice calibration, keep your head still while moving only your eyes to look at each point. This locks your optical baseline.</li>
-            <li><strong>Voice & Dwell:</strong> The voice calibrator accepts <em>"I have looked"</em> or any vocal utterance, plus auto-captures if you just hold your gaze on the point for 3 seconds.</li>
+            <li><strong>Glasses Mode Enabled:</strong> Keeps tracking locked to rigid skull canthi bone landmarks (33, 133, 362, 263), filtering out spectacle frame shifts.</li>
+            <li><strong>Spectacle Glare:</strong> If room lights cause intense white reflection on your lenses, slightly angle your monitor or tilt glasses down 2-3mm.</li>
+            <li><strong>Head Stability during Calibration:</strong> Keep head comfortably centered while moving eyes to look at each point. This creates the optical anchor matrix.</li>
+            <li><strong>Voice & Spacebar Confirmation:</strong> Say <em>"I am looking"</em>, <em>"looked"</em>, <em>"done"</em>, tap Spacebar, or simply hold your gaze for 1.8 seconds.</li>
           </ul>
         </div>
       </div>

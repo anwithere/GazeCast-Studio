@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { EyeTrackerService } from './services/eye-tracker.service';
+import { EyeTrackerService, ResponsivenessMode } from './services/eye-tracker.service';
 import { ChallengeVideosService, ChallengePreset } from './services/challenge-videos.service';
 import { CompositeRecorderService, ReticleStyle, PipPosition } from './services/composite-recorder.service';
 import { VoiceCalibratorService } from './services/voice-calibrator.service';
@@ -54,13 +54,15 @@ export class App implements OnInit, OnDestroy {
   readonly recordedVideoUrl = computed(() => this.recorder.recordedVideoUrl());
   readonly heatmapImageUrl = computed(() => this.recorder.heatmapImageUrl());
   readonly telemetryLog = computed(() => this.recorder.getTelemetryLog());
+  readonly aiInsights = computed(() => this.recorder.aiInsights());
 
-  // Calibration and voice state
+  // Calibration and eye-tracking state
   readonly voiceTargets = computed(() => this.voiceCalibrator.targets);
   readonly currentVoiceTargetIndex = computed(() => this.voiceCalibrator.currentTargetIndex());
   readonly voiceStatusMessage = computed(() => this.voiceCalibrator.statusMessage());
   readonly lastHeardPhrase = computed(() => this.voiceCalibrator.lastHeardPhrase());
   readonly micVolume = computed(() => this.voiceCalibrator.micVolume());
+  readonly noiseFloor = computed(() => this.voiceCalibrator.noiseFloor());
   readonly isVoiceSpeaking = computed(() => this.voiceCalibrator.isSpeaking());
   readonly isListeningForVoice = computed(() => this.voiceCalibrator.isListeningForVoice());
   readonly isVoiceSupported = computed(() => this.voiceCalibrator.isVoiceSupported());
@@ -70,6 +72,11 @@ export class App implements OnInit, OnDestroy {
   readonly dwellProgress = computed(() => this.voiceCalibrator.dwellProgress());
   readonly modelStatus = computed(() => this.eyeTracker.modelStatus());
   readonly isNeuralModelLoaded = computed(() => this.eyeTracker.isNeuralModelLoaded());
+  readonly spectaclesMode = computed(() => this.eyeTracker.spectaclesMode());
+  readonly responsivenessMode = computed(() => this.eyeTracker.responsivenessMode());
+  readonly eyeVelocity = computed(() => this.eyeTracker.eyeVelocityPxPerSec());
+  readonly gazeSensitivity = computed(() => this.eyeTracker.gazeSensitivity());
+  readonly aiReport = computed(() => this.eyeTracker.aiReport());
 
   readonly formattedTime = computed(() => {
     const sec = this.currentTime();
@@ -159,6 +166,22 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  toggleSpectaclesMode() {
+    this.eyeTracker.toggleSpectaclesMode();
+  }
+
+  setResponsiveness(mode: ResponsivenessMode) {
+    this.eyeTracker.setResponsiveness(mode);
+  }
+
+  recenterGaze() {
+    this.eyeTracker.recenterGaze();
+  }
+
+  async analyzeRecordedGazeWithAi() {
+    await this.recorder.analyzeGazeWithAi();
+  }
+
   async toggleWebcam() {
     if (this.eyeTracker.isCameraReady()) {
       this.eyeTracker.stopWebcam();
@@ -242,10 +265,10 @@ export class App implements OnInit, OnDestroy {
     this.recorder.pipPosition.set(pos);
   }
 
-  setSmoothing(event: Event) {
+  setSensitivity(event: Event) {
     const target = event.target as HTMLInputElement;
     const val = parseFloat(target.value);
-    this.eyeTracker.setSmoothing(val);
+    this.eyeTracker.setSensitivity(val);
   }
 
   toggleGazeTrail() {

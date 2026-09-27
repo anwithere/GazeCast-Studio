@@ -50,21 +50,22 @@ export class VoiceCalibratorService {
   readonly isSpeaking = signal<boolean>(false);
   readonly lastHeardPhrase = signal<string>('');
   readonly micVolume = signal<number>(0); // 0 to 100
-  readonly statusMessage = signal<string>('Ready for voice calibration');
+  readonly noiseFloor = signal<number>(10);
+  readonly statusMessage = signal<string>('Ready for voice-assisted calibration');
   readonly isListeningForVoice = signal<boolean>(false);
   readonly dwellProgress = signal<number>(0); // 0 to 100%
 
   // 9 Targets
   readonly targets: CalibrationVoiceTarget[] = [
-    { id: 0, label: 'Top Left', spokenPrompt: 'Look at top left, and say: I have looked', nx: 0.12, ny: 0.12, completed: false },
-    { id: 1, label: 'Top Center', spokenPrompt: 'Look at top center, and say: I have looked', nx: 0.50, ny: 0.12, completed: false },
-    { id: 2, label: 'Top Right', spokenPrompt: 'Look at top right, and say: I have looked', nx: 0.88, ny: 0.12, completed: false },
-    { id: 3, label: 'Middle Left', spokenPrompt: 'Look at middle left, and say: I have looked', nx: 0.12, ny: 0.50, completed: false },
-    { id: 4, label: 'Center', spokenPrompt: 'Look directly at center, and say: I have looked', nx: 0.50, ny: 0.50, completed: false },
-    { id: 5, label: 'Middle Right', spokenPrompt: 'Look at middle right, and say: I have looked', nx: 0.88, ny: 0.50, completed: false },
-    { id: 6, label: 'Bottom Left', spokenPrompt: 'Look at bottom left, and say: I have looked', nx: 0.12, ny: 0.88, completed: false },
-    { id: 7, label: 'Bottom Center', spokenPrompt: 'Look at bottom center, and say: I have looked', nx: 0.50, ny: 0.88, completed: false },
-    { id: 8, label: 'Bottom Right', spokenPrompt: 'Look at bottom right, and say: I have looked', nx: 0.88, ny: 0.88, completed: false },
+    { id: 0, label: 'Top Left', spokenPrompt: 'Look at top left, and say: I am looking', nx: 0.12, ny: 0.12, completed: false },
+    { id: 1, label: 'Top Center', spokenPrompt: 'Look at top center, and say: I am looking', nx: 0.50, ny: 0.12, completed: false },
+    { id: 2, label: 'Top Right', spokenPrompt: 'Look at top right, and say: I am looking', nx: 0.88, ny: 0.12, completed: false },
+    { id: 3, label: 'Middle Left', spokenPrompt: 'Look at middle left, and say: I am looking', nx: 0.12, ny: 0.50, completed: false },
+    { id: 4, label: 'Center', spokenPrompt: 'Look directly at center, and say: I am looking', nx: 0.50, ny: 0.50, completed: false },
+    { id: 5, label: 'Middle Right', spokenPrompt: 'Look at middle right, and say: I am looking', nx: 0.88, ny: 0.50, completed: false },
+    { id: 6, label: 'Bottom Left', spokenPrompt: 'Look at bottom left, and say: I am looking', nx: 0.12, ny: 0.88, completed: false },
+    { id: 7, label: 'Bottom Center', spokenPrompt: 'Look at bottom center, and say: I am looking', nx: 0.50, ny: 0.88, completed: false },
+    { id: 8, label: 'Bottom Right', spokenPrompt: 'Look at bottom right, and say: I am looking', nx: 0.88, ny: 0.88, completed: false },
   ];
 
   readonly currentTargetIndex = signal<number>(0);
@@ -89,6 +90,7 @@ export class VoiceCalibratorService {
   private isVoiceActive = false;
   private dwellInterval: ReturnType<typeof setInterval> | null = null;
   private dwellCounter = 0;
+  private ambientNoiseSamples: number[] = [];
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -121,7 +123,6 @@ export class VoiceCalibratorService {
       };
 
       this.recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        if (this.isSpeaking()) return; // Don't trigger on own voice
         let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const item = event.results[i]?.[0];
@@ -132,18 +133,24 @@ export class VoiceCalibratorService {
 
         this.lastHeardPhrase.set(transcript.trim());
 
-        // Lenient matching: matches "looked", "look", "i have", "done", "ready", "next", "ok", "yes"
+        // Extremely flexible vocabulary: matches "looking", "looked", "look", "i have", "i am", "done", "ready", "next", "ok", "yes", "now", "here", "spot", "point", "see"
         if (
-          transcript.includes('looked') ||
           transcript.includes('look') ||
+          transcript.includes('looking') ||
+          transcript.includes('looked') ||
           transcript.includes('have') ||
+          transcript.includes('am') ||
           transcript.includes('done') ||
           transcript.includes('ready') ||
           transcript.includes('next') ||
           transcript.includes('yes') ||
-          transcript.includes('ok')
+          transcript.includes('ok') ||
+          transcript.includes('now') ||
+          transcript.includes('here') ||
+          transcript.includes('spot') ||
+          transcript.includes('see')
         ) {
-          this.handleHeardConfirmation('Speech Recognition');
+          this.handleHeardConfirmation('Voice Recognition');
         }
       };
 
@@ -178,6 +185,7 @@ export class VoiceCalibratorService {
     this.targets.forEach(t => (t.completed = false));
     this.isProcessingConfirmation = false;
     this.dwellProgress.set(0);
+    this.ambientNoiseSamples = [];
 
     // 1. Start real-time microphone energy monitor (Web Audio VAD)
     this.startMicVisualizer();
@@ -185,15 +193,15 @@ export class VoiceCalibratorService {
     // 2. Start speech recognition in background
     this.startListening();
 
-    // 3. Start auto-dwell timer (auto-captures after 3 seconds of gaze fixation if user prefers not speaking)
+    // 3. Start auto-dwell timer (auto-captures after 1.8 seconds of steady gaze)
     this.startDwellTimer();
 
     // 4. Welcome vocal prompt
     const firstTarget = this.targets[0];
     this.speak(
-      `Please look directly at the ${firstTarget.label} target, and say: I have looked.`,
+      `Please look directly at ${firstTarget.label}. Say: I am looking, or press Spacebar.`,
       () => {
-        this.statusMessage.set(`Looking at ${firstTarget.label}... Say "I have looked" or tap Spacebar`);
+        this.statusMessage.set(`Looking at ${firstTarget.label}... Say "I am looking" or tap Spacebar`);
       }
     );
   }
@@ -204,15 +212,15 @@ export class VoiceCalibratorService {
     this.dwellProgress.set(0);
 
     this.dwellInterval = setInterval(() => {
-      if (!this.isCalibrating() || this.isProcessingConfirmation || this.isSpeaking()) return;
+      if (!this.isCalibrating() || this.isProcessingConfirmation) return;
 
       this.dwellCounter += 100;
-      const progress = Math.min(100, Math.round((this.dwellCounter / 3200) * 100));
+      const progress = Math.min(100, Math.round((this.dwellCounter / 1800) * 100));
       this.dwellProgress.set(progress);
 
-      // Auto-advance after 3.2s of steady fixation
-      if (this.dwellCounter >= 3200) {
-        this.handleHeardConfirmation('Fixation Timer');
+      // Auto-advance after 1.8 seconds of steady fixation
+      if (this.dwellCounter >= 1800) {
+        this.handleHeardConfirmation('Steady Gaze Auto-Lock');
       }
     }, 100);
   }
@@ -251,14 +259,14 @@ export class VoiceCalibratorService {
       const nextTarget = this.targets[nextIndex];
 
       const confirmations = [
-        `Target captured! Now look at ${nextTarget.label}, and say: I have looked.`,
+        `Locked! Now look at ${nextTarget.label}.`,
         `Got it! Look at ${nextTarget.label}.`,
-        `Recorded! Focus on ${nextTarget.label}.`
+        `Point captured! Focus on ${nextTarget.label}.`
       ];
       const prompt = confirmations[currentIndex % confirmations.length];
 
       this.speak(prompt, () => {
-        this.statusMessage.set(`Looking at ${nextTarget.label}... Say "I have looked" or tap Spacebar`);
+        this.statusMessage.set(`Looking at ${nextTarget.label}... Say "I am looking" or tap Spacebar`);
         this.isProcessingConfirmation = false;
         this.resetDwell();
       });
@@ -266,12 +274,12 @@ export class VoiceCalibratorService {
       // Completed all 9 targets!
       this.calibrationFinished.set(true);
       this.isCalibrating.set(false);
-      this.statusMessage.set('Calibration complete! High accuracy gaze model locked.');
+      this.statusMessage.set('Calibration complete! High accuracy Thin-Plate Spline model locked.');
 
       if (this.dwellInterval) clearInterval(this.dwellInterval);
 
       this.playFanfare();
-      this.speak('Calibration complete! Your screen gaze mapping is now active.', () => {
+      this.speak('Calibration complete! Your screen gaze tracking is now fully active.', () => {
         this.stopListening();
         this.stopMicVisualizer();
         if (this.onAllCompletedCallback) {
@@ -283,11 +291,11 @@ export class VoiceCalibratorService {
 
   manualConfirmTarget(targetIndex: number) {
     if (targetIndex !== this.currentTargetIndex()) return;
-    this.handleHeardConfirmation('Manual Tap');
+    this.handleHeardConfirmation('Screen Tap');
   }
 
   confirmCurrentTargetManual() {
-    this.handleHeardConfirmation('Spacebar Tap');
+    this.handleHeardConfirmation('Spacebar Key');
   }
 
   private startListening() {
@@ -320,7 +328,7 @@ export class VoiceCalibratorService {
     try {
       this.synth.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05;
+      utterance.rate = 1.1;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
@@ -350,8 +358,7 @@ export class VoiceCalibratorService {
   }
 
   /**
-   * Real-Time Web Audio VAD (Voice Activity Detection)
-   * Analyzes sound energy in browser: when user speaks into mic, triggers capture instantly!
+   * Real-Time Web Audio VAD with Ambient Noise Floor Auto-Calibration
    */
   private async startMicVisualizer() {
     try {
@@ -394,11 +401,19 @@ export class VoiceCalibratorService {
           const vol = Math.min(100, Math.round((avg / 128) * 100));
           this.micVolume.set(vol);
 
+          // Calibrate ambient noise floor
+          if (this.ambientNoiseSamples.length < 30) {
+            this.ambientNoiseSamples.push(vol);
+            const ambientAvg = this.ambientNoiseSamples.reduce((a, b) => a + b, 0) / this.ambientNoiseSamples.length;
+            this.noiseFloor.set(Math.max(6, Math.round(ambientAvg)));
+          }
+
           // Voice Activity Detection (VAD)
-          // When not speaking itself, if user vocalizes (vol > 20 for >= 250ms then finishes)
+          // Trigger if volume is 8 points above ambient noise floor
+          const triggerThreshold = Math.max(16, this.noiseFloor() + 8);
           const now = performance.now();
           if (!this.isSpeaking() && !this.isProcessingConfirmation && this.isCalibrating()) {
-            if (vol > 22) {
+            if (vol > triggerThreshold) {
               if (!this.isVoiceActive) {
                 this.isVoiceActive = true;
                 this.voiceEnergyStartTime = now;
@@ -406,10 +421,10 @@ export class VoiceCalibratorService {
             } else if (this.isVoiceActive) {
               const spokenDuration = now - this.voiceEnergyStartTime;
               this.isVoiceActive = false;
-              // If user spoke for between 250ms and 2200ms (typical "I have looked" or "done")
-              if (spokenDuration > 250 && spokenDuration < 2500) {
+              // If user spoke for between 160ms and 2600ms (typical "I am looking" or "done")
+              if (spokenDuration > 160 && spokenDuration < 2600) {
                 this.lastHeardPhrase.set('Vocal utterance detected');
-                this.handleHeardConfirmation('Acoustic Voice (VAD)');
+                this.handleHeardConfirmation('Mic Vocal Pulse');
               }
             }
           }
@@ -422,7 +437,7 @@ export class VoiceCalibratorService {
         this.animFrameId = requestAnimationFrame(updateLevel);
       }
     } catch (err) {
-      console.warn('Mic visualizer not accessible:', err);
+      console.warn('Mic visualizer note:', err);
     }
   }
 
