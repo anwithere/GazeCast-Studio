@@ -1,0 +1,6 @@
+{
+  "name": "GazeCast Studio - Eye Tracking Reaction Recorder",
+  "description": "Real-time webcam eye tracking and screen gaze mapping studio. Play challenge videos, track pupil focus point by point, and export viral reaction videos with webcam PiP and millisecond gaze reticle overlays.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
